@@ -20,6 +20,7 @@ import path from 'path';
 import mime from 'mime';
 
 import { isUnderTest } from '@utils/debug';
+import { getAsBooleanFromENV } from '@utils/env';
 import * as js from './javascript';
 import { prepareFilesForUpload } from './fileUploadUtils';
 import * as rawInjectedScriptSource from '../generated/injectedScriptSource';
@@ -415,7 +416,11 @@ export class ElementHandle<T extends Node = Node> extends js.JSHandle<T> {
       return await this._scrollRectIntoViewIfNeeded(progress, position ? { x: position.x, y: position.y, width: 0, height: 0 } : undefined);
     };
 
-    if (this._frame.parentFrame()) {
+    // When PLAYWRIGHT_DISABLE_SCROLL_ON_CLICK is set, skip scrolling the element
+    // into view before pointer actions. Defaults to the normal scrolling behavior.
+    const disableScrollOnClick = getAsBooleanFromENV('PLAYWRIGHT_DISABLE_SCROLL_ON_CLICK');
+
+    if (!disableScrollOnClick && this._frame.parentFrame()) {
       // Best-effort scroll to make sure any iframes containing this element are scrolled
       // into view and visible, so they are not throttled.
       // See https://github.com/microsoft/playwright/issues/27196 for an example.
@@ -440,10 +445,14 @@ export class ElementHandle<T extends Node = Node> extends js.JSHandle<T> {
       await progress.race((options as any).__testHookAfterStable());
 
     progress.log('  scrolling into view if needed');
-    const scrolled = await doScrollIntoView(progress);
-    if (scrolled !== 'done')
-      return scrolled;
-    progress.log('  done scrolling');
+    if (!disableScrollOnClick) {
+      const scrolled = await doScrollIntoView(progress);
+      if (scrolled !== 'done')
+        return scrolled;
+      progress.log('  done scrolling');
+    } else {
+      progress.log('  scrolling disabled via PLAYWRIGHT_DISABLE_SCROLL_ON_CLICK');
+    }
 
     const maybeResult = position ? await this._offsetPoint(progress, position) : await this._clickablePoint(progress);
     if (typeof maybeResult === 'string')
