@@ -188,9 +188,10 @@ export class CRBrowser extends Browser {
     assert(!this._crPages.has(targetInfo.targetId), 'Duplicate target ' + targetInfo.targetId);
     assert(!this._serviceWorkers.has(targetInfo.targetId), 'Duplicate target ' + targetInfo.targetId);
 
-    if (targetInfo.type === 'page' || treatOtherAsPage) {
+    if (targetInfo.type === 'page' || targetInfo.type === 'webview' || treatOtherAsPage) {
       const opener = targetInfo.openerId ? this._crPages.get(targetInfo.openerId) || null : null;
-      const crPage = new CRPage(session, targetInfo.targetId, context, opener, { hasUIWindow: targetInfo.type === 'page' });
+      const hasUIWindow = targetInfo.type === 'page' || targetInfo.type === 'webview';
+      const crPage = new CRPage(session, targetInfo.targetId, context, opener, { hasUIWindow });
       this._crPages.set(targetInfo.targetId, crPage);
       return;
     }
